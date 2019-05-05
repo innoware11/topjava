@@ -8,6 +8,7 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.Month;
 import java.util.*;
+import java.util.stream.Collectors;
 
 public class UserMealsUtil {
 
@@ -26,18 +27,16 @@ public class UserMealsUtil {
     }
 
     public static List<UserMealWithExceed>  getFilteredWithExceeded(List<UserMeal> mealList, LocalTime startTime, LocalTime endTime, int caloriesPerDay) {
-        // Return filtered list with correctly exceeded field by cycle with lambda
-        Map<LocalDate, Integer> totalCaloriesPerDayMap = new HashMap<>();
-        mealList.forEach(userMeal -> totalCaloriesPerDayMap.merge(userMeal.getDateTime().toLocalDate(), userMeal.getCalories(), Integer::sum));
+        // Return filtered list with correctly exceeded field by stream
+        Map<LocalDate, Integer> totalCaloriesPerDayMap = mealList.stream()
+                .collect(Collectors.groupingBy(uM -> uM.getDateTime().toLocalDate(), Collectors.summingInt(UserMeal::getCalories)));
 
-        List<UserMealWithExceed> userMealWithExceedList = new ArrayList<>();
-        mealList.forEach(userMeal -> {
-            LocalDateTime dateTime = userMeal.getDateTime();
-            if (TimeUtil.isBetween(dateTime.toLocalTime(), startTime, endTime)) {
-                boolean exceed = totalCaloriesPerDayMap.get(dateTime.toLocalDate()) > caloriesPerDay;
-                userMealWithExceedList.add(new UserMealWithExceed(dateTime, userMeal.getDescription(), userMeal.getCalories(), exceed));
-            }
-        });
-        return userMealWithExceedList;
+        return mealList.stream()
+                .filter(uM -> TimeUtil.isBetween(uM.getDateTime().toLocalTime(), startTime, endTime))
+                .map(uM -> {
+                    LocalDateTime dateTime = uM.getDateTime();
+                    boolean exceed = totalCaloriesPerDayMap.get(dateTime.toLocalDate()) > caloriesPerDay;
+                    return new UserMealWithExceed(dateTime, uM.getDescription(), uM.getCalories(), exceed);
+                }).collect(Collectors.toList());
     }
 }
